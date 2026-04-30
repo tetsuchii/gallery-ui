@@ -1,0 +1,84 @@
+:root {
+  --bg: #fafafa;
+  --bg-elev: #ffffff;
+  --frame: #e4e4e7;
+  --ink: #18181b;
+  --ink-soft: #52525b;
+  --ink-faint: #a1a1aa;
+  --line: #e4e4e7;
+  --line-soft: #f4f4f5;
+  --accent: #18181b;
+  --accent-soft: #f4f4f5;
+
+  /* Flat aesthetic — shadows are intentionally near-zero. The lightbox
+     keeps a single shadow to separate the modal from the dimmed page. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 24px 60px rgba(0, 0, 0, 0.5);
+
+  --serif: "Iowan Old Style", "Charter", "Georgia", "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  --app-w: 440px;
+
+  font: 16px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--frame);
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --bg-elev: #161618;
+    --frame: #000000;
+    --ink: #fafafa;
+    --ink-soft: #a1a1aa;
+    --ink-faint: #52525b;
+    --line: #27272a;
+    --line-soft: #18181b;
+    --accent: #fafafa;
+    --accent-soft: #27272a;
+    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 60px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--frame);
+  min-height: 100svh;
+}
+
+body { overflow-x: hidden; }
+
+#root {
+  min-height: 100svh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+img { max-width: 100%; display: block; }
+p { margin: 0; }
+
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
