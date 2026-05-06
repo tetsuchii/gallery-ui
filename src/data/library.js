@@ -128,6 +128,9 @@ export function buildLibrary() {
       filename,
       day,
       note: noteText,
+      collectionNote: null,
+      collectionName: null,
+      collectionKey: null,
       year: monthEntry.year,
       month: monthEntry.month,
     };
@@ -143,7 +146,10 @@ export function buildLibrary() {
     }
   }
 
-  // Pass 2: collection notes (also creates note-only collections)
+  // Pass 2: collection notes — any .rtf inside a collection folder that looks
+  // like a note: named "note*.rtf" (old style) or "<mon>_<day>_note.rtf" (new
+  // style), plus the .rtfd/TXT.rtf variant of both. After setting c.note, the
+  // note text is also copied to each item so the lightbox can display it.
   for (const path of Object.keys(rtfByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
@@ -151,8 +157,10 @@ export function buildLibrary() {
 
     const filename = parts[parts.length - 1];
     let isCollectionNote = false;
-    if (parts.length === 3 && /^note.*\.rtf$/i.test(filename)) {
+    // depth 3: any .rtf whose name starts with "note" OR ends with "_note.rtf"
+    if (parts.length === 3 && /(?:^note|_note)\.rtf$/i.test(filename)) {
       isCollectionNote = true;
+    // depth 4: any <anything>.rtfd/TXT.rtf (covers both note.rtfd and dec_25_note.rtfd)
     } else if (
       parts.length === 4 &&
       /\.rtfd$/i.test(parts[2]) &&
@@ -165,23 +173,35 @@ export function buildLibrary() {
     const monthEntry = getMonth(parts[0]);
     if (!monthEntry) continue;
     const c = getCollection(monthEntry, parts[1]);
-    if (!c.note) c.note = rtfByPath[path];
+    if (!c.note) {
+      c.note = rtfByPath[path];
+      // propagate to all items already in this collection
+      for (const it of c.items) it.collectionNote = c.note;
+    }
   }
 
-  // Pass 3: month-day notes (e.g. "feb_13_note.rtf") attach to every image
-  // in that month folder taken on that day. Pass 1's exact stem-match
-  // already handled the "<base>.jpg" + "<base>_note.rtf" pair (e.g.
-  // dec_4.jpg ↔ dec_4_note.rtf); this pass covers the looser case where the
-  // note is named after the date and the actual image filenames are
-  // unrelated (e.g. 52595475_..._n_feb_13.jpg ← feb_13_note.rtf).
+  // Pass 3: month-day notes attach to every loose image in that month taken
+  // on that day. Handles two naming patterns:
+  //   <mon>_<day>_note.rtf          depth 2: "2019-feb/feb_13_note.rtf"
+  //   <mon>_<day>_note.rtfd/TXT.rtf depth 3: "2019-aug/aug_24_note.rtfd/TXT.rtf"
   for (const [path, text] of Object.entries(rtfByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
-    if (parts.length !== 2) continue;
-    const m = parts[1].match(/^[a-z]+_(\d{1,2})_note\.rtf$/i);
-    if (!m) continue;
-    const day = parseInt(m[1], 10);
-    if (day < 1 || day > 31) continue;
+
+    let day = null;
+    if (parts.length === 2) {
+      const m = parts[1].match(/^[a-z]+_(\d{1,2})_note\.rtf$/i);
+      if (m) day = parseInt(m[1], 10);
+    } else if (
+      parts.length === 3 &&
+      /^TXT\.rtf$/i.test(parts[2]) &&
+      /^[a-z]+_\d{1,2}_note\.rtfd$/i.test(parts[1])
+    ) {
+      const m = parts[1].match(/_(\d{1,2})_note\.rtfd$/i);
+      if (m) day = parseInt(m[1], 10);
+    }
+
+    if (!day || day < 1 || day > 31) continue;
     const monthEntry = monthMap.get(parts[0]);
     if (!monthEntry) continue;
 

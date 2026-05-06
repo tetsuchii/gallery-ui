@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { filterItems } from "../data/search.js";
 import {
   formatDateLong,
@@ -44,8 +44,83 @@ function AlbumCard({ album, byId, onOpen }) {
   );
 }
 
-function GroupedPhoto({ item, dateInHeader, onOpen, onSave, savedCount }) {
+// Inline per-image note editor for album detail (light theme).
+function InlineNoteEditor({ item, noteOverrides, setNote, clearNote }) {
+  const hasOverride = noteOverrides.has(item.id);
+  // item.note is already the effective note (override applied in App.jsx effectiveById)
+  const current = item.note ?? "";
+  const originalNote = hasOverride ? null : current; // only used for "restore" logic
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  useEffect(() => { setEditing(false); }, [item.id]);
+
+  function startEdit() { setDraft(current); setEditing(true); }
+
+  function save() {
+    setNote(item.id, draft);
+    setEditing(false);
+  }
+
+  function del() {
+    setNote(item.id, "");
+    setEditing(false);
+  }
+
+  function restore() {
+    clearNote(item.id);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="inline-note-edit">
+        <textarea
+          autoFocus
+          className="inline-note-textarea"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={3}
+          placeholder="Write a note…"
+          maxLength={600}
+        />
+        <div className="inline-note-actions">
+          {current && (
+            <button type="button" className="inline-note-btn inline-note-btn--danger" onClick={del}>
+              Delete
+            </button>
+          )}
+          {hasOverride && (
+            <button type="button" className="inline-note-btn" onClick={restore}>
+              Restore original
+            </button>
+          )}
+          <button type="button" className="inline-note-btn" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+          <button type="button" className="inline-note-btn inline-note-btn--save" onClick={save}>
+            Save
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-note-display">
+      {current && <p className="photo-note-text">{current}</p>}
+      <button type="button" className="inline-note-add" onClick={startEdit}>
+        {current ? "Edit note" : "+ Add note"}
+        {hasOverride && <span className="inline-edited-dot" aria-label="edited" />}
+      </button>
+    </div>
+  );
+}
+
+function GroupedPhoto({ item, dateInHeader, onOpen, onSave, savedCount, noteOverrides, setNote, clearNote }) {
   const onAny = !!savedCount;
+  const hasNoteEditing = !!noteOverrides;
   return (
     <figure className="photo">
       <div className="photo-frame">
@@ -67,20 +142,27 @@ function GroupedPhoto({ item, dateInHeader, onOpen, onSave, savedCount }) {
           <BookmarkIcon filled={onAny} />
         </button>
       </div>
-      {(item.note || !dateInHeader) && (
-        <figcaption className="photo-note">
-          {!dateInHeader && <span className="photo-date">{formatDateLong(item)}</span>}
-          {item.note && <span className="photo-note-text">{item.note}</span>}
-        </figcaption>
-      )}
+      <figcaption className="photo-note">
+        {!dateInHeader && <span className="photo-date">{formatDateLong(item)}</span>}
+        {hasNoteEditing ? (
+          <InlineNoteEditor
+            item={item}
+            noteOverrides={noteOverrides}
+            setNote={setNote}
+            clearNote={clearNote}
+          />
+        ) : (
+          item.note && <span className="photo-note-text">{item.note}</span>
+        )}
+      </figcaption>
     </figure>
   );
 }
 
-function AlbumDetail({ album, byId, query, savedCounts, newestFirst, onBack, onOpenPhoto, onSave, onUpdate, onDelete }) {
+function AlbumDetail({ album, byId, query, savedCounts, newestFirst, noteOverrides, setNote, clearNote, onBack, onOpenPhoto, onSave, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(album.name);
-  const [note, setNote] = useState(album.note);
+  const [albumNote, setAlbumNote] = useState(album.note);
 
   const items = useMemo(() => {
     const list = album.imageIds.map((id) => byId.get(id)).filter(Boolean);
@@ -105,7 +187,7 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, onBack, onO
 
   function commit(e) {
     e.preventDefault();
-    onUpdate(album.id, { name, note });
+    onUpdate(album.id, { name, note: albumNote });
     setEditing(false);
   }
 
@@ -142,7 +224,7 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, onBack, onO
           </label>
           <label className="sheet-field">
             <span>Note</span>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={400} />
+            <textarea value={albumNote} onChange={(e) => setAlbumNote(e.target.value)} rows={3} maxLength={400} />
           </label>
           <div className="sheet-form-actions">
             <button type="submit" className="btn-solid">Save</button>
@@ -184,6 +266,9 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, onBack, onO
                     onOpen={() => onOpenPhoto(it, items)}
                     onSave={onSave}
                     savedCount={savedCounts.get(it.id) || 0}
+                    noteOverrides={noteOverrides}
+                    setNote={setNote}
+                    clearNote={clearNote}
                   />
                 ))}
               </div>
@@ -195,6 +280,9 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, onBack, onO
                 onOpen={() => onOpenPhoto(g.items[0], items)}
                 onSave={onSave}
                 savedCount={savedCounts.get(g.items[0].id) || 0}
+                noteOverrides={noteOverrides}
+                setNote={setNote}
+                clearNote={clearNote}
               />
             )
           )}
@@ -290,6 +378,9 @@ export default function Albums({
   openAlbumId,
   savedCounts,
   newestFirst,
+  noteOverrides,
+  setNote,
+  clearNote,
   onOpenAlbum,
   onCloseAlbum,
   onCreate,
@@ -308,6 +399,9 @@ export default function Albums({
         query={query}
         savedCounts={savedCounts}
         newestFirst={newestFirst}
+        noteOverrides={noteOverrides}
+        setNote={setNote}
+        clearNote={clearNote}
         onBack={onCloseAlbum}
         onOpenPhoto={onOpenPhoto}
         onSave={onSave}

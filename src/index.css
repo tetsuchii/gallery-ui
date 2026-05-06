@@ -1,27 +1,28 @@
 :root {
-  --bg: #fafafa;
+  --bg: #fbfaf7;
   --bg-elev: #ffffff;
-  --frame: #e4e4e7;
-  --ink: #18181b;
-  --ink-soft: #52525b;
-  --ink-faint: #a1a1aa;
-  --line: #e4e4e7;
-  --line-soft: #f4f4f5;
-  --accent: #18181b;
-  --accent-soft: #f4f4f5;
+  --frame: #e6e3df;
+  --ink: #2d2a32;
+  --ink-soft: #6e6a78;
+  --ink-faint: #b3afba;
+  --line: #ebe9ef;
+  --line-soft: #f5f4f8;
+  --accent: #e85d6f;
+  --accent-soft: #fde6e9;
 
-  /* Flat aesthetic — shadows are intentionally near-zero. The lightbox
-     keeps a single shadow to separate the modal from the dimmed page. */
+  /* Flat aesthetic — only modals carry a soft elevation. */
   --shadow-sm: none;
   --shadow-md: none;
-  --shadow-lg: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 24px 60px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 0 0 1px rgba(45, 42, 50, 0.06), 0 18px 44px rgba(45, 42, 50, 0.22);
 
-  --serif: "Iowan Old Style", "Charter", "Georgia", "Times New Roman", serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* A friendly, distinctly non-Apple sans stack. Trebuchet MS is on Mac
+     and Windows by default; Lucida Grande / Verdana are friendly fallbacks
+     for older platforms. */
+  --sans: "Trebuchet MS", "Lucida Grande", "Lucida Sans Unicode", Verdana, Geneva, sans-serif;
 
   --app-w: 440px;
 
-  font: 16px/1.5 var(--sans);
+  font: 16px/1.55 var(--sans);
   color: var(--ink);
   background: var(--frame);
   color-scheme: light;
@@ -32,17 +33,17 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0a0a;
-    --bg-elev: #161618;
-    --frame: #000000;
-    --ink: #fafafa;
-    --ink-soft: #a1a1aa;
-    --ink-faint: #52525b;
-    --line: #27272a;
-    --line-soft: #18181b;
-    --accent: #fafafa;
-    --accent-soft: #27272a;
-    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 60px rgba(0, 0, 0, 0.7);
+    --bg: #1c1a1f;
+    --bg-elev: #26242b;
+    --frame: #0d0c0f;
+    --ink: #f0eef2;
+    --ink-soft: #a8a4ae;
+    --ink-faint: #5d5a64;
+    --line: #2e2c33;
+    --line-soft: #23222a;
+    --accent: #f08593;
+    --accent-soft: #3a262c;
+    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 }
@@ -54,6 +55,7 @@ html, body {
   padding: 0;
   background: var(--frame);
   min-height: 100svh;
+  font-family: var(--sans);
 }
 
 body { overflow-x: hidden; }
@@ -67,6 +69,7 @@ body { overflow-x: hidden; }
 
 button {
   font: inherit;
+  font-family: var(--sans);
   color: inherit;
   background: none;
   border: 0;
@@ -74,11 +77,16 @@ button {
   padding: 0;
 }
 
+input, textarea, select {
+  font-family: var(--sans);
+}
+
 img { max-width: 100%; display: block; }
 p { margin: 0; }
 
 h1, h2, h3 {
   margin: 0;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }

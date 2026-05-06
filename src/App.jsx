@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { buildLibrary } from "./data/library.js";
 import { useAlbums } from "./data/albums.js";
+import { useNotes } from "./data/notes.js";
 import { filterMonths } from "./data/search.js";
 import { chronologicalBlocks } from "./data/dates.js";
 import Header from "./components/Header.jsx";
@@ -75,6 +76,19 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [newestFirst, setNewestFirst] = useState(true);
 
+  // Notes (user edits stored in localStorage)
+  const { overrides: noteOverrides, setNote, clearNote } = useNotes();
+
+  const effectiveById = useMemo(() => {
+    if (!noteOverrides.size) return itemsById;
+    const map = new Map(itemsById);
+    for (const [id, note] of noteOverrides) {
+      const item = map.get(id);
+      if (item) map.set(id, { ...item, note });
+    }
+    return map;
+  }, [itemsById, noteOverrides]);
+
   // Albums
   const albumsApi = useAlbums();
   const [openAlbumId, setOpenAlbumId] = useState(null);
@@ -106,10 +120,22 @@ export default function App() {
     [months, selectedYear, selectedMonth, query]
   );
 
-  const orderedMonths = useMemo(
-    () => (newestFirst ? [...filteredMonths].reverse() : filteredMonths),
-    [filteredMonths, newestFirst]
-  );
+  const orderedMonths = useMemo(() => {
+    const base = newestFirst ? [...filteredMonths].reverse() : filteredMonths;
+    if (!noteOverrides.size) return base;
+    // Shallow-clone items that have a note override so child components re-render
+    function applyOverride(it) {
+      return noteOverrides.has(it.id) ? { ...it, note: noteOverrides.get(it.id) } : it;
+    }
+    return base.map((m) => ({
+      ...m,
+      loose: m.loose.map(applyOverride),
+      collections: m.collections.map((c) => ({
+        ...c,
+        items: c.items.map(applyOverride),
+      })),
+    }));
+  }, [filteredMonths, newestFirst, noteOverrides]);
 
   const flatTimelineItems = useMemo(() => {
     const out = [];
@@ -171,11 +197,14 @@ export default function App() {
         ) : (
           <Albums
             albums={combinedAlbums}
-            byId={itemsById}
+            byId={effectiveById}
             query={query}
             openAlbumId={openAlbumId}
             savedCounts={savedCounts}
             newestFirst={newestFirst}
+            noteOverrides={noteOverrides}
+            setNote={setNote}
+            clearNote={clearNote}
             onOpenAlbum={setOpenAlbumId}
             onCloseAlbum={() => setOpenAlbumId(null)}
             onCreate={albumsApi.create}
@@ -195,6 +224,9 @@ export default function App() {
           onIndex={(i) => setLightbox((lb) => ({ ...lb, index: i }))}
           onSave={setSaveTarget}
           savedCounts={savedCounts}
+          noteOverrides={noteOverrides}
+          setNote={setNote}
+          clearNote={clearNote}
         />
       )}
 

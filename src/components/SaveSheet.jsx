@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MONTH_SHORT } from "../data/library.js";
 
 export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }) {
   const [creating, setCreating] = useState(false);
@@ -23,6 +24,10 @@ export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }
     setCreating(false);
   }
 
+  const folderLabel = image.collectionName
+    ? `${image.collectionName}${image.month ? ` · ${MONTH_SHORT[image.month]} ${image.year}` : ""}`
+    : null;
+
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-label="Save to album">
       <button type="button" className="sheet-backdrop" onClick={onClose} aria-label="Close" />
@@ -34,6 +39,16 @@ export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }
             Done
           </button>
         </header>
+
+        {/* Folder the photo lives in — read-only context */}
+        {folderLabel && (
+          <div className="sheet-folder">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
+              <path d="M2 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z" />
+            </svg>
+            <span>{folderLabel}</span>
+          </div>
+        )}
 
         {albums.length === 0 && !creating && (
           <p className="sheet-empty">No albums yet — create your first one.</p>
@@ -50,10 +65,7 @@ export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }
                     className={`sheet-row ${checked ? "is-checked" : ""}`}
                     onClick={() => onToggle(a.id, image.id)}
                   >
-                    <span
-                      className={`sheet-check ${checked ? "is-on" : ""}`}
-                      aria-hidden="true"
-                    >
+                    <span className={`sheet-check ${checked ? "is-on" : ""}`} aria-hidden="true">
                       {checked ? "✓" : ""}
                     </span>
                     <span className="sheet-row-text">
