@@ -49,7 +49,6 @@ function InlineNoteEditor({ item, noteOverrides, setNote, clearNote }) {
   const hasOverride = noteOverrides.has(item.id);
   // item.note is already the effective note (override applied in App.jsx effectiveById)
   const current = item.note ?? "";
-  const originalNote = hasOverride ? null : current; // only used for "restore" logic
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -118,7 +117,7 @@ function InlineNoteEditor({ item, noteOverrides, setNote, clearNote }) {
   );
 }
 
-function GroupedPhoto({ item, dateInHeader, onOpen, onSave, savedCount, noteOverrides, setNote, clearNote }) {
+function GroupedPhoto({ item, dateInHeader, onOpen, onSave, onRemove, savedCount, noteOverrides, setNote, clearNote }) {
   const onAny = !!savedCount;
   const hasNoteEditing = !!noteOverrides;
   return (
@@ -137,10 +136,20 @@ function GroupedPhoto({ item, dateInHeader, onOpen, onSave, savedCount, noteOver
           className={`photo-bookmark ${onAny ? "is-on" : ""}`}
           onClick={(e) => { e.stopPropagation(); onSave(item); }}
           aria-label="Manage albums"
-          title="Manage albums"
         >
           <BookmarkIcon filled={onAny} />
         </button>
+        {onRemove && (
+          <button
+            type="button"
+            className="photo-remove"
+            onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+            aria-label="Remove from album"
+            title="Remove from album"
+          >
+            ×
+          </button>
+        )}
       </div>
       <figcaption className="photo-note">
         {!dateInHeader && <span className="photo-date">{formatDateLong(item)}</span>}
@@ -204,24 +213,26 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, noteOverrid
         <button type="button" className="link-button" onClick={onBack}>
           ‹ All albums
         </button>
-        {!isCollection && (
-          <div className="album-bar-actions">
-            <button type="button" className="link-button" onClick={() => setEditing((v) => !v)}>
-              {editing ? "Cancel" : "Edit"}
-            </button>
+        <div className="album-bar-actions">
+          <button type="button" className="link-button" onClick={() => setEditing((v) => !v)}>
+            {editing ? "Cancel" : "Edit"}
+          </button>
+          {!isCollection && (
             <button type="button" className="link-button link-danger" onClick={handleDelete}>
               Delete
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {editing && !isCollection ? (
+      {editing ? (
         <form className="album-edit" onSubmit={commit}>
-          <label className="sheet-field">
-            <span>Name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-          </label>
+          {!isCollection && (
+            <label className="sheet-field">
+              <span>Name</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+            </label>
+          )}
           <label className="sheet-field">
             <span>Note</span>
             <textarea value={albumNote} onChange={(e) => setAlbumNote(e.target.value)} rows={3} maxLength={400} />

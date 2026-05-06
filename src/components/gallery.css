@@ -156,11 +156,12 @@
 
 .chip-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
   margin: 0 -16px;
+  margin-left: 2px;
   padding: 2px 16px;
 }
 
@@ -425,10 +426,10 @@
 .collection-grid .photo-frame { border-radius: 6px; }
 
 .collection-grid .photo-bookmark {
-  width: 32px;
-  height: 32px;
   top: 6px;
   right: 6px;
+  width: 32px;
+  height: 32px;
 }
 
 /* ---------- Albums index ---------- */

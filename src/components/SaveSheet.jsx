@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { MONTH_SHORT } from "../data/library.js";
 
-export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }) {
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 4 }}>
+      <path d="M2 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z" />
+    </svg>
+  );
+}
+
+export default function SaveSheet({ image, albums, collectionAlbum, onClose, onToggle, onToggleCollection, onCreate }) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -24,9 +32,7 @@ export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }
     setCreating(false);
   }
 
-  const folderLabel = image.collectionName
-    ? `${image.collectionName}${image.month ? ` · ${MONTH_SHORT[image.month]} ${image.year}` : ""}`
-    : null;
+  const hasAnyAlbum = collectionAlbum || albums.length > 0;
 
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-label="Save to album">
@@ -40,22 +46,37 @@ export default function SaveSheet({ image, albums, onClose, onToggle, onCreate }
           </button>
         </header>
 
-        {/* Folder the photo lives in — read-only context */}
-        {folderLabel && (
-          <div className="sheet-folder">
-            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
-              <path d="M2 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z" />
-            </svg>
-            <span>{folderLabel}</span>
-          </div>
-        )}
-
-        {albums.length === 0 && !creating && (
+        {!hasAnyAlbum && !creating && (
           <p className="sheet-empty">No albums yet — create your first one.</p>
         )}
 
-        {!creating && albums.length > 0 && (
+        {!creating && hasAnyAlbum && (
           <ul className="sheet-list">
+            {collectionAlbum && (() => {
+              const checked = collectionAlbum.imageIds.includes(image.id);
+              const monthLabel = image.month ? `${MONTH_SHORT[image.month]} ${image.year}` : null;
+              return (
+                <li key={collectionAlbum.id}>
+                  <button
+                    type="button"
+                    className={`sheet-row ${checked ? "is-checked" : ""}`}
+                    onClick={() => onToggleCollection(collectionAlbum.id, image.id)}
+                  >
+                    <span className={`sheet-check ${checked ? "is-on" : ""}`} aria-hidden="true">
+                      {checked ? "✓" : ""}
+                    </span>
+                    <span className="sheet-row-text">
+                      <span className="sheet-row-name">
+                        <FolderIcon />{collectionAlbum.name}
+                      </span>
+                      <span className="sheet-row-meta">
+                        {monthLabel ? `${monthLabel} · ` : ""}Default folder
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })()}
             {albums.map((a) => {
               const checked = a.imageIds.includes(image.id);
               return (

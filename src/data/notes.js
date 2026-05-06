@@ -46,5 +46,7 @@ export function useNotes() {
     });
   }, []);
 
-  return { overrides, setNote, clearNote };
+  const clearAll = useCallback(() => setOverrides(new Map()), []);
+
+  return { overrides, setNote, clearNote, clearAll };
 }

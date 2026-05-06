@@ -75,5 +75,7 @@ export function useAlbums() {
     );
   }, []);
 
-  return { albums, create, remove, update, toggleImage };
+  const clearAll = useCallback(() => setAlbums([]), []);
+
+  return { albums, create, remove, update, toggleImage, clearAll };
 }

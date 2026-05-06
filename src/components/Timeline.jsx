@@ -8,6 +8,7 @@ import {
 
 function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
   const showCaption = !compact && (!dateInHeader || item.note);
+
   return (
     <figure className="photo">
       <div className="photo-frame">
@@ -19,6 +20,7 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
         >
           <img src={item.src} alt="" loading="lazy" />
         </button>
+
         <button
           type="button"
           className={`photo-bookmark ${savedCount > 0 ? "is-on" : ""}`}
@@ -29,6 +31,7 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
           <BookmarkIcon filled={savedCount > 0} />
         </button>
       </div>
+
       {showCaption && (
         <figcaption className="photo-note">
           {!dateInHeader && (
@@ -125,8 +128,7 @@ function LooseGroup({ group, onOpen, onSave, savedCounts }) {
   );
 }
 
-export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst }) {
-  if (!months.length) {
+export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst }) {  if (!months.length) {
     return (
       <div className="empty-state">
         <p>Nothing here for that filter.</p>
@@ -154,6 +156,7 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
                     monthLabel={m.label}
                     onOpen={onOpen}
                     onSave={onSave}
+                    
                     savedCounts={savedCounts}
                   />
                 ) : (
@@ -162,6 +165,7 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
                     group={b.group}
                     onOpen={onOpen}
                     onSave={onSave}
+                    
                     savedCounts={savedCounts}
                   />
                 )

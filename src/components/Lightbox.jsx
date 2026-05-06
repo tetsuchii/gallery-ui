@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { BookmarkIcon } from "./Albums.jsx";
 import { formatDateBar } from "../data/dates.js";
 
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
 const SWIPE_THRESHOLD = 60;
 const CLOSE_THRESHOLD = 120;
 
@@ -87,6 +95,7 @@ export default function Lightbox({
   onClose,
   onIndex,
   onSave,
+  onDelete,
   savedCounts,
   noteOverrides,
   setNote,
@@ -179,6 +188,22 @@ export default function Lightbox({
               aria-label="Save to album"
             >
               <BookmarkIcon filled={!!savedCounts?.get(item.id)} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="lightbox-action"
+              onClick={() => {
+                if (confirm("Delete this photo?")) {
+                  onDelete(item);
+                  onClose();
+                }
+              }}
+              aria-label="Delete photo"
+              title="Delete photo"
+            >
+              <TrashIcon />
             </button>
           )}
           <button type="button" className="lightbox-close" onClick={onClose} aria-label="Close">

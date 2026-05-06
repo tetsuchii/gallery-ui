@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildLibrary } from "./data/library.js";
 import { useAlbums } from "./data/albums.js";
 import { useNotes } from "./data/notes.js";
+import { useAlbumOverrides } from "./data/albumOverrides.js";
+import { useDeletedImages } from "./data/deletedImages.js";
 import { filterMonths } from "./data/search.js";
 import { chronologicalBlocks } from "./data/dates.js";
 import Header from "./components/Header.jsx";
@@ -12,16 +14,98 @@ import SaveSheet from "./components/SaveSheet.jsx";
 import Albums from "./components/Albums.jsx";
 
 export default function App() {
-  const months = useMemo(() => buildLibrary(), []);
+  const staticMonths = useMemo(() => buildLibrary(), []);
+  const [uploadedImages, setUploadedImages] = useState([]);
+
+  useEffect(() => {
+    async function loadUploadedImages() {
+      try {
+        const apiBase = `http://${window.location.hostname}:3001`;
+        const res = await fetch(`${apiBase}/images-list`);
+        const files = await res.json();
+
+        const now = new Date();
+
+        const items = files.map((file) => ({
+          id: `upload::${file}`,
+          src: `${apiBase}/images/${file}`,
+          filename: file,
+          day: now.getDate(),
+          note: null,
+          collectionNote: null,
+          collectionName: null,
+          collectionKey: null,
+          year: now.getFullYear(),
+          month: now.getMonth() + 1,
+          source: "upload",
+        }));
+
+        setUploadedImages(items);
+      } catch (err) {
+        console.error("Could not load uploaded images", err);
+      }
+    }
+
+    loadUploadedImages();
+
+    const interval = setInterval(loadUploadedImages, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const deletedImagesApi = useDeletedImages();
+
+  async function deleteAnyImage(item) {
+    deletedImagesApi.markDeleted(item.id);
+
+    if (item.source === "upload") {
+      const apiBase = `http://${window.location.hostname}:3001`;
+      await fetch(`${apiBase}/images/${item.filename}`, {
+        method: "DELETE",
+      });
+      setUploadedImages((imgs) =>
+        imgs.filter((img) => img.filename !== item.filename),
+      );
+    }
+  }
+
+  const months = useMemo(() => {
+    if (!uploadedImages.length) return staticMonths;
+
+    const now = new Date();
+
+    const uploadMonth = {
+      key: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-uploads`,
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      label: "Uploaded images",
+      shortLabel: "Uploads",
+      collections: [],
+      loose: uploadedImages,
+    };
+
+    return [...staticMonths, uploadMonth];
+  }, [staticMonths, uploadedImages]);
+
+  const monthsWithoutDeleted = useMemo(() => {
+    if (!deletedImagesApi.deletedIds.size) return months;
+    return months.map((m) => ({
+      ...m,
+      loose: m.loose.filter((it) => !deletedImagesApi.deletedIds.has(it.id)),
+      collections: m.collections.map((c) => ({
+        ...c,
+        items: c.items.filter((it) => !deletedImagesApi.deletedIds.has(it.id)),
+      })),
+    }));
+  }, [months, deletedImagesApi.deletedIds]);
 
   const allItems = useMemo(() => {
     const out = [];
-    for (const m of months) {
+    for (const m of monthsWithoutDeleted) {
       for (const c of m.collections) for (const it of c.items) out.push(it);
       for (const it of m.loose) out.push(it);
     }
     return out;
-  }, [months]);
+  }, [monthsWithoutDeleted]);
 
   const itemsById = useMemo(() => {
     const map = new Map();
@@ -29,20 +113,28 @@ export default function App() {
     return map;
   }, [allItems]);
 
+  // Hooks that collectionAlbums depends on must come first
+  const { overrides: noteOverrides, setNote, clearNote, clearAll: clearAllNotes } = useNotes();
+  const albumOverridesApi = useAlbumOverrides();
+
   // File-system collections show up in the Albums tab as read-only albums
   // (you can't edit/delete them, and they don't accept new photos via the
   // Save sheet — they're just a different view of what's already on disk).
   const collectionAlbums = useMemo(() => {
     const out = [];
-    for (const m of months) {
+    for (const m of monthsWithoutDeleted) {
       for (const c of m.collections) {
         if (c.items.length === 0) continue;
+        const id = `col::${c.key}`;
+        const ov = albumOverridesApi.overrides.get(id) || {};
+        if (ov.hidden) continue;
+        const hiddenSet = new Set(ov.hiddenImageIds || []);
         out.push({
-          id: `col::${c.key}`,
+          id,
           source: "collection",
-          name: c.name,
-          note: c.note || "",
-          imageIds: c.items.map((it) => it.id),
+          name: ov.name ?? c.name,
+          note: ov.note !== undefined ? ov.note : (c.note || ""),
+          imageIds: c.items.filter((it) => !hiddenSet.has(it.id)).map((it) => it.id),
           monthLabel: m.label,
           monthKey: m.key,
           year: m.year,
@@ -50,24 +142,27 @@ export default function App() {
         });
       }
     }
-    out.sort((a, b) => a.year - b.year || a.month - b.month || a.name.localeCompare(b.name));
+    out.sort(
+      (a, b) =>
+        a.year - b.year || a.month - b.month || a.name.localeCompare(b.name),
+    );
     return out;
-  }, [months]);
+  }, [monthsWithoutDeleted, albumOverridesApi.overrides]);
 
   const years = useMemo(
-    () => [...new Set(months.map((m) => m.year))].sort((a, b) => a - b),
-    [months]
+    () => [...new Set(monthsWithoutDeleted.map((m) => m.year))].sort((a, b) => a - b),
+    [monthsWithoutDeleted],
   );
 
   const monthsByYear = useMemo(() => {
     const map = new Map();
-    for (const m of months) {
+    for (const m of monthsWithoutDeleted) {
       if (!map.has(m.year)) map.set(m.year, []);
       map.get(m.year).push(m.month);
     }
     for (const list of map.values()) list.sort((a, b) => a - b);
     return map;
-  }, [months]);
+  }, [monthsWithoutDeleted]);
 
   // UI state
   const [view, setView] = useState("timeline");
@@ -76,18 +171,21 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [newestFirst, setNewestFirst] = useState(true);
 
-  // Notes (user edits stored in localStorage)
-  const { overrides: noteOverrides, setNote, clearNote } = useNotes();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [query, selectedYear, selectedMonth, newestFirst]);
 
   const effectiveById = useMemo(() => {
-    if (!noteOverrides.size) return itemsById;
     const map = new Map(itemsById);
+    for (const id of deletedImagesApi.deletedIds) {
+      map.delete(id);
+    }
     for (const [id, note] of noteOverrides) {
       const item = map.get(id);
       if (item) map.set(id, { ...item, note });
     }
     return map;
-  }, [itemsById, noteOverrides]);
+  }, [itemsById, noteOverrides, deletedImagesApi.deletedIds]);
 
   // Albums
   const albumsApi = useAlbums();
@@ -101,7 +199,7 @@ export default function App() {
         : a.createdAt || 0;
     const list = [...albumsApi.albums, ...collectionAlbums];
     list.sort((a, b) =>
-      newestFirst ? sortKey(b) - sortKey(a) : sortKey(a) - sortKey(b)
+      newestFirst ? sortKey(b) - sortKey(a) : sortKey(a) - sortKey(b),
     );
     return list;
   }, [albumsApi.albums, collectionAlbums, newestFirst]);
@@ -114,28 +212,43 @@ export default function App() {
     return map;
   }, [albumsApi.albums]);
 
+  // Merge all user edits (note overrides + album name/note overrides) into the
+  // month tree so that filterMonths searches the effective text, not raw data.
+  const monthsWithNotes = useMemo(() => {
+    const hasNotes = noteOverrides.size > 0;
+    const hasAlbum = albumOverridesApi.overrides.size > 0;
+    if (!hasNotes && !hasAlbum) return monthsWithoutDeleted;
+    return monthsWithoutDeleted.map((m) => ({
+      ...m,
+      loose: hasNotes
+        ? m.loose.map((it) =>
+            noteOverrides.has(it.id) ? { ...it, note: noteOverrides.get(it.id) } : it
+          )
+        : m.loose,
+      collections: m.collections.map((c) => {
+        const ov = hasAlbum ? (albumOverridesApi.overrides.get(`col::${c.key}`) || {}) : {};
+        const c2 = (ov.name !== undefined || ov.note !== undefined)
+          ? { ...c, name: ov.name ?? c.name, note: ov.note !== undefined ? ov.note : c.note }
+          : c;
+        return hasNotes
+          ? { ...c2, items: c2.items.map((it) =>
+              noteOverrides.has(it.id) ? { ...it, note: noteOverrides.get(it.id) } : it
+            ) }
+          : c2;
+      }),
+    }));
+  }, [monthsWithoutDeleted, noteOverrides, albumOverridesApi.overrides]);
+
   // Timeline filtering
   const filteredMonths = useMemo(
-    () => filterMonths(months, { year: selectedYear, month: selectedMonth, query }),
-    [months, selectedYear, selectedMonth, query]
+    () => filterMonths(monthsWithNotes, { year: selectedYear, month: selectedMonth, query }),
+    [monthsWithNotes, selectedYear, selectedMonth, query],
   );
 
-  const orderedMonths = useMemo(() => {
-    const base = newestFirst ? [...filteredMonths].reverse() : filteredMonths;
-    if (!noteOverrides.size) return base;
-    // Shallow-clone items that have a note override so child components re-render
-    function applyOverride(it) {
-      return noteOverrides.has(it.id) ? { ...it, note: noteOverrides.get(it.id) } : it;
-    }
-    return base.map((m) => ({
-      ...m,
-      loose: m.loose.map(applyOverride),
-      collections: m.collections.map((c) => ({
-        ...c,
-        items: c.items.map(applyOverride),
-      })),
-    }));
-  }, [filteredMonths, newestFirst, noteOverrides]);
+  const orderedMonths = useMemo(
+    () => newestFirst ? [...filteredMonths].reverse() : filteredMonths,
+    [filteredMonths, newestFirst],
+  );
 
   const flatTimelineItems = useMemo(() => {
     const out = [];
@@ -165,6 +278,63 @@ export default function App() {
   function handleYear(y) {
     setSelectedYear(y);
     setSelectedMonth(null);
+  }
+
+  // Unified album update — routes to the right store based on album source
+  function handleAlbumUpdate(albumId, patch) {
+    const album = combinedAlbums.find((a) => a.id === albumId);
+    if (!album) return;
+    if (album.source === "collection") {
+      albumOverridesApi.patch(albumId, patch);
+    } else {
+      albumsApi.update(albumId, patch);
+    }
+  }
+
+  // Unified album delete — hides collection albums, fully removes user albums
+  function handleAlbumDelete(albumId) {
+    const album = combinedAlbums.find((a) => a.id === albumId);
+    if (!album) return;
+    if (album.source === "collection") {
+      albumOverridesApi.patch(albumId, { hidden: true });
+    } else {
+      albumsApi.remove(albumId);
+    }
+    setOpenAlbumId(null);
+  }
+
+  // Remove a single photo from an album (excludes for collection albums)
+  function handleRemoveFromAlbum(albumId, imageId) {
+    const album = combinedAlbums.find((a) => a.id === albumId);
+    if (!album) return;
+    if (album.source === "collection") {
+      albumOverridesApi.hideImage(albumId, imageId);
+    } else {
+      albumsApi.toggleImage(albumId, imageId);
+    }
+  }
+
+  // Toggle a photo's presence in its original collection album (hide ↔ restore).
+  function handleToggleCollectionImage(albumId, imageId) {
+    const album = collectionAlbums.find((a) => a.id === albumId);
+    if (!album) return;
+    if (album.imageIds.includes(imageId)) {
+      albumOverridesApi.hideImage(albumId, imageId);
+    } else {
+      albumOverridesApi.showImage(albumId, imageId);
+    }
+  }
+
+  // Wipe all localStorage state back to the pure on-disk state
+  function resetAppData() {
+    if (!window.confirm(
+      "Reset all edits, notes, and albums?\n\nYour photos and folder collections are not affected — only the changes you made inside the app will be cleared."
+    )) return;
+    clearAllNotes();
+    albumsApi.clearAll();
+    albumOverridesApi.clearAll();
+    deletedImagesApi.clearAll();
+    setOpenAlbumId(null);
   }
 
   return (
@@ -208,8 +378,10 @@ export default function App() {
             onOpenAlbum={setOpenAlbumId}
             onCloseAlbum={() => setOpenAlbumId(null)}
             onCreate={albumsApi.create}
-            onUpdate={albumsApi.update}
-            onDelete={albumsApi.remove}
+            onUpdate={handleAlbumUpdate}
+            onDelete={handleAlbumDelete}
+            onRemoveFromAlbum={handleRemoveFromAlbum}
+            onReset={resetAppData}
             onOpenPhoto={openInList}
             onSave={setSaveTarget}
           />
@@ -223,6 +395,7 @@ export default function App() {
           onClose={() => setLightbox(null)}
           onIndex={(i) => setLightbox((lb) => ({ ...lb, index: i }))}
           onSave={setSaveTarget}
+          onDelete={deleteAnyImage}
           savedCounts={savedCounts}
           noteOverrides={noteOverrides}
           setNote={setNote}
@@ -234,8 +407,14 @@ export default function App() {
         <SaveSheet
           image={saveTarget}
           albums={albumsApi.albums}
+          collectionAlbum={
+            saveTarget.collectionKey
+              ? collectionAlbums.find((a) => a.id === `col::${saveTarget.collectionKey}`) ?? null
+              : null
+          }
           onClose={() => setSaveTarget(null)}
           onToggle={albumsApi.toggleImage}
+          onToggleCollection={handleToggleCollectionImage}
           onCreate={albumsApi.create}
         />
       )}
