@@ -1,11 +1,51 @@
-import { useEffect, useRef, useState } from "react";
-import { BookmarkIcon } from "./Albums.jsx";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
+
 import { formatDateBar } from "../data/dates.js";
+
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 7a2 2 0 0 1 2-2h4.5l2 2H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z" />
+    </svg>
+  );
+}
 
 function TrashIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
       <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18l6-6-6-6" />
     </svg>
   );
 }
@@ -13,7 +53,7 @@ function TrashIcon() {
 const SWIPE_THRESHOLD = 60;
 const CLOSE_THRESHOLD = 120;
 
-function NoteEditor({ item, noteOverrides, setNote, clearNote }) {
+function NoteEditor({ item, noteOverrides, setNote, clearNote, ref }) {
   const hasOverride = noteOverrides.has(item.id);
   // Original = file-based note (may be null). Current = what's actually shown.
   const original = item.note;                              // file-based
@@ -21,16 +61,19 @@ function NoteEditor({ item, noteOverrides, setNote, clearNote }) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [seenItemId, setSeenItemId] = useState(item.id);
 
-  // Reset editing state when the viewed photo changes.
-  useEffect(() => {
+  if (seenItemId !== item.id) {
+    setSeenItemId(item.id);
     setEditing(false);
-  }, [item.id]);
+  }
 
   function startEdit() {
     setDraft(current ?? "");
     setEditing(true);
   }
+
+  useImperativeHandle(ref, () => ({ startEdit }));
 
   function save() {
     setNote(item.id, draft);
@@ -104,6 +147,11 @@ export default function Lightbox({
   const item = items[index];
   const wrapRef = useRef(null);
   const touch = useRef(null);
+  const noteEditorRef = useRef(null);
+
+  const hasNote = noteOverrides
+    ? (noteOverrides.has(item.id) ? !!noteOverrides.get(item.id) : !!item.note)
+    : !!item.note;
 
   useEffect(() => {
     function onKey(e) {
@@ -187,7 +235,7 @@ export default function Lightbox({
               onClick={() => onSave(item)}
               aria-label="Save to album"
             >
-              <BookmarkIcon filled={!!savedCounts?.get(item.id)} />
+              <FolderIcon />
             </button>
           )}
           {onDelete && (
@@ -206,8 +254,19 @@ export default function Lightbox({
               <TrashIcon />
             </button>
           )}
-          <button type="button" className="lightbox-close" onClick={onClose} aria-label="Close">
-            Close
+          {noteOverrides && (
+            <button
+              type="button"
+              className={`lightbox-action ${hasNote ? "is-on" : ""}`}
+              onClick={() => noteEditorRef.current?.startEdit()}
+              aria-label={hasNote ? "Edit note" : "Add note"}
+              title={hasNote ? "Edit note" : "Add note"}
+            >
+              <PenIcon />
+            </button>
+          )}
+          <button type="button" className="lightbox-action" onClick={onClose} aria-label="Close">
+            <CloseIcon />
           </button>
         </div>
       </div>
@@ -226,7 +285,7 @@ export default function Lightbox({
           disabled={!hasPrev}
           aria-label="Previous photo"
         >
-          ‹
+          <ChevronLeftIcon />
         </button>
 
         <div className="lightbox-img-wrap" ref={wrapRef}>
@@ -240,7 +299,7 @@ export default function Lightbox({
           disabled={!hasNext}
           aria-label="Next photo"
         >
-          ›
+          <ChevronRightIcon />
         </button>
       </div>
 
@@ -253,6 +312,7 @@ export default function Lightbox({
         )}
         {noteOverrides ? (
           <NoteEditor
+            ref={noteEditorRef}
             item={item}
             noteOverrides={noteOverrides}
             setNote={setNote}

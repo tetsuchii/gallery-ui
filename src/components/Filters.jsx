@@ -11,7 +11,9 @@ export default function Filters({
   onToggleSort,
   showFilters = true,
 }) {
-  const months = selectedYear ? monthsByYear.get(selectedYear) ?? [] : [];
+  const orderedYears = newestFirst ? [...years].reverse() : years;
+  const months = selectedYear ? (monthsByYear.get(selectedYear) ?? []) : [];
+  const orderedMonths = newestFirst ? [...months].reverse() : months;
 
   return (
     <div className="filters">
@@ -35,45 +37,31 @@ export default function Filters({
             >
               All
             </button>
-            {years.map((y) => (
+            {orderedYears
+              .filter((y) => selectedYear == null || y === selectedYear)
+              .map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className={`chip ${selectedYear === y ? "is-active" : ""}`}
+                  onClick={() => onYearChange(selectedYear === y ? null : y)}
+                >
+                  {y}
+                </button>
+              ))}
+            {showFilters && selectedYear != null && orderedMonths.map((m) => (
               <button
-                key={y}
+                key={m}
                 type="button"
-                className={`chip ${selectedYear === y ? "is-active" : ""}`}
-                onClick={() => onYearChange(y)}
+                className={`chip ${selectedMonth === m ? "is-active" : ""}`}
+                onClick={() => onMonthChange(selectedMonth === m ? null : m)}
               >
-                {y}
+                {MONTH_SHORT[m]}
               </button>
             ))}
           </>
         )}
       </div>
-
-      {showFilters && selectedYear != null && (
-        <div
-          className="chip-row chip-row--months"
-          role="tablist"
-          aria-label="Filter by month"
-        >
-          <button
-            type="button"
-            className={`chip chip--soft ${selectedMonth == null ? "is-active" : ""}`}
-            onClick={() => onMonthChange(null)}
-          >
-            All
-          </button>
-          {months.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`chip chip--soft ${selectedMonth === m ? "is-active" : ""}`}
-              onClick={() => onMonthChange(m)}
-            >
-              {MONTH_SHORT[m]}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

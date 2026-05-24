@@ -13,6 +13,26 @@ import Lightbox from "./components/Lightbox.jsx";
 import SaveSheet from "./components/SaveSheet.jsx";
 import Albums from "./components/Albums.jsx";
 
+function PhotosIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="17" rx="3" />
+      <path d="M3 9h18" />
+      <path d="M8 2v4M16 2v4" />
+      <rect x="7" y="13" width="3.5" height="3.5" rx="1" fill="currentColor" stroke="none" />
+      <rect x="13.5" y="13" width="3.5" height="3.5" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function AlbumsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 7a2 2 0 0 1 2-2h4.5l2 2H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7z" />
+    </svg>
+  );
+}
+
 export default function App() {
   const staticMonths = useMemo(() => buildLibrary(), []);
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -114,7 +134,7 @@ export default function App() {
   }, [allItems]);
 
   // Hooks that collectionAlbums depends on must come first
-  const { overrides: noteOverrides, setNote, clearNote, clearAll: clearAllNotes } = useNotes();
+  const { overrides: noteOverrides, setNote, clearNote } = useNotes();
   const albumOverridesApi = useAlbumOverrides();
 
   // File-system collections show up in the Albums tab as read-only albums
@@ -170,6 +190,7 @@ export default function App() {
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [newestFirst, setNewestFirst] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -190,7 +211,12 @@ export default function App() {
   // Albums
   const albumsApi = useAlbums();
   const [openAlbumId, setOpenAlbumId] = useState(null);
+  const [albumEditing, setAlbumEditing] = useState(false);
   const [saveTarget, setSaveTarget] = useState(null);
+
+  function openAlbum(id) { setOpenAlbumId(id); setAlbumEditing(false); }
+  function closeAlbum() { setOpenAlbumId(null); setAlbumEditing(false); }
+  function openAlbumFromTimeline(id) { setView("albums"); openAlbum(id); }
 
   const combinedAlbums = useMemo(() => {
     const sortKey = (a) =>
@@ -303,17 +329,6 @@ export default function App() {
     setOpenAlbumId(null);
   }
 
-  // Remove a single photo from an album (excludes for collection albums)
-  function handleRemoveFromAlbum(albumId, imageId) {
-    const album = combinedAlbums.find((a) => a.id === albumId);
-    if (!album) return;
-    if (album.source === "collection") {
-      albumOverridesApi.hideImage(albumId, imageId);
-    } else {
-      albumsApi.toggleImage(albumId, imageId);
-    }
-  }
-
   // Toggle a photo's presence in its original collection album (hide ↔ restore).
   function handleToggleCollectionImage(albumId, imageId) {
     const album = collectionAlbums.find((a) => a.id === albumId);
@@ -325,34 +340,34 @@ export default function App() {
     }
   }
 
-  // Wipe all localStorage state back to the pure on-disk state
-  function resetAppData() {
-    if (!window.confirm(
-      "Reset all edits, notes, and albums?\n\nYour photos and folder collections are not affected — only the changes you made inside the app will be cleared."
-    )) return;
-    clearAllNotes();
-    albumsApi.clearAll();
-    albumOverridesApi.clearAll();
-    deletedImagesApi.clearAll();
-    setOpenAlbumId(null);
-  }
 
   return (
     <div className="app">
       <header className="app-header">
-        <Header view={view} onView={setView} query={query} onQuery={setQuery} />
-
-        <Filters
-          years={years}
-          monthsByYear={monthsByYear}
-          selectedYear={selectedYear}
-          selectedMonth={selectedMonth}
-          onYearChange={handleYear}
-          onMonthChange={setSelectedMonth}
-          newestFirst={newestFirst}
-          onToggleSort={() => setNewestFirst((v) => !v)}
-          showFilters={view === "timeline"}
+        <Header
+          view={view}
+          onView={setView}
+          query={query}
+          onQuery={setQuery}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((v) => !v)}
+          onBack={view === "albums" && openAlbumId ? closeAlbum : undefined}
+          onHeaderAction={view === "albums" && openAlbumId ? () => setAlbumEditing(true) : undefined}
         />
+
+        {filtersOpen && view === "timeline" && (
+          <Filters
+            years={years}
+            monthsByYear={monthsByYear}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            onYearChange={handleYear}
+            onMonthChange={setSelectedMonth}
+            newestFirst={newestFirst}
+            onToggleSort={() => setNewestFirst((v) => !v)}
+            showFilters
+          />
+        )}
       </header>
 
       <main className="app-main">
@@ -363,6 +378,7 @@ export default function App() {
             onSave={setSaveTarget}
             savedCounts={savedCounts}
             newestFirst={newestFirst}
+            onOpenAlbum={openAlbumFromTimeline}
           />
         ) : (
           <Albums
@@ -370,20 +386,15 @@ export default function App() {
             byId={effectiveById}
             query={query}
             openAlbumId={openAlbumId}
-            savedCounts={savedCounts}
             newestFirst={newestFirst}
-            noteOverrides={noteOverrides}
-            setNote={setNote}
-            clearNote={clearNote}
-            onOpenAlbum={setOpenAlbumId}
-            onCloseAlbum={() => setOpenAlbumId(null)}
+            albumEditing={albumEditing}
+            setAlbumEditing={setAlbumEditing}
+            onOpenAlbum={openAlbum}
+            onCloseAlbum={closeAlbum}
             onCreate={albumsApi.create}
             onUpdate={handleAlbumUpdate}
             onDelete={handleAlbumDelete}
-            onRemoveFromAlbum={handleRemoveFromAlbum}
-            onReset={resetAppData}
             onOpenPhoto={openInList}
-            onSave={setSaveTarget}
           />
         )}
       </main>
@@ -407,17 +418,37 @@ export default function App() {
         <SaveSheet
           image={saveTarget}
           albums={albumsApi.albums}
-          collectionAlbum={
-            saveTarget.collectionKey
-              ? collectionAlbums.find((a) => a.id === `col::${saveTarget.collectionKey}`) ?? null
-              : null
-          }
+          collectionAlbums={collectionAlbums}
           onClose={() => setSaveTarget(null)}
           onToggle={albumsApi.toggleImage}
           onToggleCollection={handleToggleCollectionImage}
           onCreate={albumsApi.create}
         />
       )}
+
+      <nav className="bottom-nav" aria-label="Main navigation">
+        <div className="bottom-tab-bar">
+          <button
+            type="button"
+            className={`bottom-tab ${view === "timeline" ? "is-active" : ""}`}
+            onClick={() => setView("timeline")}
+            aria-label="Photos"
+          >
+            <PhotosIcon />
+            <span>Photos</span>
+          </button>
+          <button
+            type="button"
+            className={`bottom-tab ${view === "albums" ? "is-active" : ""}`}
+            onClick={() => setView("albums")}
+            aria-label="Albums"
+          >
+            <AlbumsIcon />
+            <span>Albums</span>
+          </button>
+        </div>
+        <div className="home-indicator" aria-hidden="true" />
+      </nav>
     </div>
   );
 }

@@ -1,28 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Jura:wght@700&family=Space+Grotesk:wght@300;400;500;600;700&family=BIZ+UDGothic:wght@400;700&display=swap');
 :root {
-  --bg: #fbfaf7;
+  --bg: #ede8de;
   --bg-elev: #ffffff;
-  --frame: #e6e3df;
-  --ink: #2d2a32;
-  --ink-soft: #6e6a78;
-  --ink-faint: #b3afba;
-  --line: #ebe9ef;
-  --line-soft: #f5f4f8;
-  --accent: #e85d6f;
-  --accent-soft: #fde6e9;
+  --frame: #ddd0be;
+  --ink: #000;
+  --ink-soft: #535353;
+  --ink-faint: #888078;
+  --line: #b7996e;
+  --line-soft: #ede4d0;
+  --accent: #a73c23;
+  --accent-soft: #f5e4e0;
 
-  /* Flat aesthetic — only modals carry a soft elevation. */
   --shadow-sm: none;
   --shadow-md: none;
-  --shadow-lg: 0 0 0 1px rgba(45, 42, 50, 0.06), 0 18px 44px rgba(45, 42, 50, 0.22);
+  --shadow-lg: 0 2px 16px rgba(42, 37, 32, 0.12), 0 1px 0 var(--line);
 
-  /* A friendly, distinctly non-Apple sans stack. Trebuchet MS is on Mac
-     and Windows by default; Lucida Grande / Verdana are friendly fallbacks
-     for older platforms. */
-  --sans: "Trebuchet MS", "Lucida Grande", "Lucida Sans Unicode", Verdana, Geneva, sans-serif;
-
+  --sans: "Space Grotesk", "Trebuchet MS", "Lucida Grande", Verdana, Geneva, sans-serif;
+  --serif: Georgia, "Times New Roman", Times, serif;
+  --collection-title: "BIZ UDGothic", "Yu Gothic Medium", "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
   --app-w: 440px;
 
-  font: 16px/1.55 var(--sans);
+  font: 16px/1.6 var(--sans);
   color: var(--ink);
   background: var(--frame);
   color-scheme: light;
@@ -31,29 +29,14 @@
   text-rendering: optimizeLegibility;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1c1a1f;
-    --bg-elev: #26242b;
-    --frame: #0d0c0f;
-    --ink: #f0eef2;
-    --ink-soft: #a8a4ae;
-    --ink-faint: #5d5a64;
-    --line: #2e2c33;
-    --line-soft: #23222a;
-    --accent: #f08593;
-    --accent-soft: #3a262c;
-    --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 18px 44px rgba(0, 0, 0, 0.7);
-    color-scheme: dark;
-  }
-}
+
 
 * { box-sizing: border-box; }
 
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--frame);
+  background: var(--frame) url('./assets/background.png') center center / cover fixed;
   min-height: 100svh;
   font-family: var(--sans);
 }
@@ -86,7 +69,7 @@ p { margin: 0; }
 
 h1, h2, h3 {
   margin: 0;
-  font-family: var(--sans);
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: 0;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MONTH_SHORT } from "../data/library.js";
 
 function FolderIcon() {
@@ -9,7 +9,27 @@ function FolderIcon() {
   );
 }
 
-export default function SaveSheet({ image, albums, collectionAlbum, onClose, onToggle, onToggleCollection, onCreate }) {
+function SheetRow({ name, meta, checked, isCollection, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`sheet-row ${checked ? "is-checked" : ""}`}
+      onClick={onClick}
+    >
+      <span className={`sheet-check ${checked ? "is-on" : ""}`} aria-hidden="true">
+        {checked ? "✓" : ""}
+      </span>
+      <span className="sheet-row-text">
+        <span className="sheet-row-name">
+          {isCollection && <FolderIcon />}{name}
+        </span>
+        {meta && <span className="sheet-row-meta">{meta}</span>}
+      </span>
+    </button>
+  );
+}
+
+export default function SaveSheet({ image, albums, collectionAlbums, onClose, onToggle, onToggleCollection, onCreate }) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -32,81 +52,102 @@ export default function SaveSheet({ image, albums, collectionAlbum, onClose, onT
     setCreating(false);
   }
 
-  const hasAnyAlbum = collectionAlbum || albums.length > 0;
+  // Collection albums this photo belongs to (usually 0 or 1)
+  const currentCollAlbums = useMemo(
+    () => (collectionAlbums ?? []).filter((a) => a.imageIds.includes(image.id)),
+    [collectionAlbums, image.id]
+  );
+
+  // User albums split by membership
+  const userAlbumsIn = useMemo(
+    () => albums.filter((a) => a.imageIds.includes(image.id)),
+    [albums, image.id]
+  );
+  const userAlbumsOut = useMemo(
+    () => albums.filter((a) => !a.imageIds.includes(image.id)),
+    [albums, image.id]
+  );
+
+  const hasAnyCurrentAlbum = currentCollAlbums.length > 0 || userAlbumsIn.length > 0;
+  const hasAlbumsToAdd = userAlbumsOut.length > 0;
 
   return (
-    <div className="sheet" role="dialog" aria-modal="true" aria-label="Save to album">
+    <div className="sheet" role="dialog" aria-modal="true" aria-label="Albums">
       <button type="button" className="sheet-backdrop" onClick={onClose} aria-label="Close" />
       <div className="sheet-card">
         <div className="sheet-handle" aria-hidden="true" />
         <header className="sheet-head">
-          <h3>Save to album</h3>
+          <h3>Albums</h3>
           <button type="button" className="sheet-close" onClick={onClose} aria-label="Close">
             Done
           </button>
         </header>
 
-        {!hasAnyAlbum && !creating && (
-          <p className="sheet-empty">No albums yet — create your first one.</p>
-        )}
-
-        {!creating && hasAnyAlbum && (
-          <ul className="sheet-list">
-            {collectionAlbum && (() => {
-              const checked = collectionAlbum.imageIds.includes(image.id);
-              const monthLabel = image.month ? `${MONTH_SHORT[image.month]} ${image.year}` : null;
-              return (
-                <li key={collectionAlbum.id}>
-                  <button
-                    type="button"
-                    className={`sheet-row ${checked ? "is-checked" : ""}`}
-                    onClick={() => onToggleCollection(collectionAlbum.id, image.id)}
-                  >
-                    <span className={`sheet-check ${checked ? "is-on" : ""}`} aria-hidden="true">
-                      {checked ? "✓" : ""}
-                    </span>
-                    <span className="sheet-row-text">
-                      <span className="sheet-row-name">
-                        <FolderIcon />{collectionAlbum.name}
-                      </span>
-                      <span className="sheet-row-meta">
-                        {monthLabel ? `${monthLabel} · ` : ""}Default folder
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })()}
-            {albums.map((a) => {
-              const checked = a.imageIds.includes(image.id);
-              return (
+        {/* Currently in */}
+        {hasAnyCurrentAlbum && (
+          <>
+            <p className="sheet-section-label">Saved in</p>
+            <ul className="sheet-list">
+              {currentCollAlbums.map((a) => {
+                const monthLabel = image.month ? `${MONTH_SHORT[image.month]} ${image.year}` : null;
+                return (
+                  <li key={a.id}>
+                    <SheetRow
+                      name={a.name}
+                      meta={monthLabel ?? undefined}
+                      checked
+                      isCollection
+                      onClick={() => onToggleCollection(a.id, image.id)}
+                    />
+                  </li>
+                );
+              })}
+              {userAlbumsIn.map((a) => (
                 <li key={a.id}>
-                  <button
-                    type="button"
-                    className={`sheet-row ${checked ? "is-checked" : ""}`}
+                  <SheetRow
+                    name={a.name}
+                    meta={`${a.imageIds.length} ${a.imageIds.length === 1 ? "photo" : "photos"}`}
+                    checked
                     onClick={() => onToggle(a.id, image.id)}
-                  >
-                    <span className={`sheet-check ${checked ? "is-on" : ""}`} aria-hidden="true">
-                      {checked ? "✓" : ""}
-                    </span>
-                    <span className="sheet-row-text">
-                      <span className="sheet-row-name">{a.name}</span>
-                      <span className="sheet-row-meta">
-                        {a.imageIds.length} {a.imageIds.length === 1 ? "photo" : "photos"}
-                      </span>
-                    </span>
-                  </button>
+                  />
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          </>
         )}
 
-        {!creating ? (
-          <button type="button" className="sheet-cta" onClick={() => setCreating(true)}>
-            + New album
-          </button>
-        ) : (
+        {/* Add to more albums */}
+        {!creating && (
+          <>
+            {hasAlbumsToAdd && (
+              <>
+                {hasAnyCurrentAlbum && <p className="sheet-section-label">Add to album</p>}
+                <ul className="sheet-list">
+                  {userAlbumsOut.map((a) => (
+                    <li key={a.id}>
+                      <SheetRow
+                        name={a.name}
+                        meta={`${a.imageIds.length} ${a.imageIds.length === 1 ? "photo" : "photos"}`}
+                        checked={false}
+                        onClick={() => onToggle(a.id, image.id)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {!hasAnyCurrentAlbum && !hasAlbumsToAdd && (
+              <p className="sheet-empty">No albums yet — create your first one.</p>
+            )}
+
+            <button type="button" className="sheet-cta" onClick={() => setCreating(true)}>
+              + New album
+            </button>
+          </>
+        )}
+
+        {creating && (
           <form className="sheet-form" onSubmit={handleCreate}>
             <label className="sheet-field">
               <span>Album name</span>

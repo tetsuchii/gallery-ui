@@ -10,6 +10,11 @@ const rtfModules = import.meta.glob(
   { eager: true, query: "?raw", import: "default" }
 );
 
+const txtModules = import.meta.glob(
+  "../assets/images/**/*.txt",
+  { eager: true, query: "?raw", import: "default" }
+);
+
 const MONTH_NUM = {
   jan: 1, january: 1,
   feb: 2, february: 2,
@@ -70,9 +75,12 @@ function parentDir(p) {
 }
 
 export function buildLibrary() {
-  const rtfByPath = {};
+  const noteByPath = {};
   for (const [p, raw] of Object.entries(rtfModules)) {
-    rtfByPath[p] = rtfToText(raw);
+    noteByPath[p] = rtfToText(raw);
+  }
+  for (const [p, raw] of Object.entries(txtModules)) {
+    noteByPath[p] = raw?.trim() || null;
   }
 
   const monthMap = new Map();
@@ -119,7 +127,10 @@ export function buildLibrary() {
     const filename = parts[parts.length - 1];
     const baseName = filename.replace(/\.[^.]+$/, "");
     const dirPath = parentDir(path);
-    const noteText = rtfByPath[`${dirPath}/${baseName}_note.rtf`] || null;
+    const noteText =
+      noteByPath[`${dirPath}/${baseName}_note.txt`] ||
+      noteByPath[`${dirPath}/${baseName}_note.rtf`] ||
+      null;
     const day = dayFromFilename(filename, monthEntry.month);
 
     const item = {
@@ -146,25 +157,25 @@ export function buildLibrary() {
     }
   }
 
-  // Pass 2: collection notes — any .rtf inside a collection folder that looks
-  // like a note: named "note*.rtf" (old style) or "<mon>_<day>_note.rtf" (new
-  // style), plus the .rtfd/TXT.rtf variant of both. After setting c.note, the
-  // note text is also copied to each item so the lightbox can display it.
-  for (const path of Object.keys(rtfByPath)) {
+  // Pass 2: collection notes — any note file inside a collection folder:
+  // "note*.rtf/txt" (old style), "<mon>_<day>_note.rtf/txt" (new style),
+  // plus the .rtfd/TXT.rtf|txt variant. After setting c.note, the note text
+  // is also copied to each item so the lightbox can display it.
+  for (const path of Object.keys(noteByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
     if (parts.length < 3) continue;
 
     const filename = parts[parts.length - 1];
     let isCollectionNote = false;
-    // depth 3: any .rtf whose name starts with "note" OR ends with "_note.rtf"
-    if (parts.length === 3 && /(?:^note|_note)\.rtf$/i.test(filename)) {
+    // depth 3: name starts with "note" OR ends with "_note", any supported ext
+    if (parts.length === 3 && /(?:^note|_note)\.(?:rtf|txt)$/i.test(filename)) {
       isCollectionNote = true;
-    // depth 4: any <anything>.rtfd/TXT.rtf (covers both note.rtfd and dec_25_note.rtfd)
+    // depth 4: <anything>.rtfd/TXT.rtf|txt
     } else if (
       parts.length === 4 &&
       /\.rtfd$/i.test(parts[2]) &&
-      /^TXT\.rtf$/i.test(parts[3])
+      /^TXT\.(?:rtf|txt)$/i.test(parts[3])
     ) {
       isCollectionNote = true;
     }
@@ -174,27 +185,27 @@ export function buildLibrary() {
     if (!monthEntry) continue;
     const c = getCollection(monthEntry, parts[1]);
     if (!c.note) {
-      c.note = rtfByPath[path];
+      c.note = noteByPath[path];
       // propagate to all items already in this collection
       for (const it of c.items) it.collectionNote = c.note;
     }
   }
 
   // Pass 3: month-day notes attach to every loose image in that month taken
-  // on that day. Handles two naming patterns:
-  //   <mon>_<day>_note.rtf          depth 2: "2019-feb/feb_13_note.rtf"
-  //   <mon>_<day>_note.rtfd/TXT.rtf depth 3: "2019-aug/aug_24_note.rtfd/TXT.rtf"
-  for (const [path, text] of Object.entries(rtfByPath)) {
+  // on that day. Handles:
+  //   <mon>_<day>_note.rtf|txt          depth 2: "2019-feb/feb_13_note.txt"
+  //   <mon>_<day>_note.rtfd/TXT.rtf|txt depth 3: "2019-aug/aug_24_note.rtfd/TXT.txt"
+  for (const [path, text] of Object.entries(noteByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
 
     let day = null;
     if (parts.length === 2) {
-      const m = parts[1].match(/^[a-z]+_(\d{1,2})_note\.rtf$/i);
+      const m = parts[1].match(/^[a-z]+_(\d{1,2})_note\.(?:rtf|txt)$/i);
       if (m) day = parseInt(m[1], 10);
     } else if (
       parts.length === 3 &&
-      /^TXT\.rtf$/i.test(parts[2]) &&
+      /^TXT\.(?:rtf|txt)$/i.test(parts[2]) &&
       /^[a-z]+_\d{1,2}_note\.rtfd$/i.test(parts[1])
     ) {
       const m = parts[1].match(/_(\d{1,2})_note\.rtfd$/i);

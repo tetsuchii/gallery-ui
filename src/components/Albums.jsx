@@ -1,28 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { filterItems } from "../data/search.js";
-import {
-  formatDateLong,
-  formatGroupLong,
-  groupByDate,
-} from "../data/dates.js";
+import { Photo } from "./Timeline.jsx";
 
-function BookmarkIcon({ filled }) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="M6 3.5h12a.5.5 0 0 1 .5.5v16.2a.5.5 0 0 1-.78.42L12 17.1l-5.72 3.52a.5.5 0 0 1-.78-.42V4a.5.5 0 0 1 .5-.5z"
-        fill={filled ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+
 
 function AlbumCard({ album, byId, onOpen }) {
   const cover = album.imageIds.map((id) => byId.get(id)).find(Boolean);
-  const isCollection = album.source === "collection";
   return (
     <button type="button" className="album-card" onClick={() => onOpen(album.id)}>
       <span className="album-cover">
@@ -35,8 +18,8 @@ function AlbumCard({ album, byId, onOpen }) {
       <span className="album-card-body">
         <span className="album-card-name">{album.name}</span>
         <span className="album-card-meta">
-          {album.imageIds.length} {album.imageIds.length === 1 ? "photo" : "photos"}
-          {isCollection && album.monthLabel ? ` · ${album.monthLabel}` : ""}
+          {album.imageIds.length} {album.imageIds.length === 1 ? "Photo" : "Photos"}
+          {album.monthLabel ? `  ${album.monthLabel}` : ""}
         </span>
         {album.note && <span className="album-card-note">{album.note}</span>}
       </span>
@@ -44,134 +27,18 @@ function AlbumCard({ album, byId, onOpen }) {
   );
 }
 
-// Inline per-image note editor for album detail (light theme).
-function InlineNoteEditor({ item, noteOverrides, setNote, clearNote }) {
-  const hasOverride = noteOverrides.has(item.id);
-  // item.note is already the effective note (override applied in App.jsx effectiveById)
-  const current = item.note ?? "";
-
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  useEffect(() => { setEditing(false); }, [item.id]);
-
-  function startEdit() { setDraft(current); setEditing(true); }
-
-  function save() {
-    setNote(item.id, draft);
-    setEditing(false);
-  }
-
-  function del() {
-    setNote(item.id, "");
-    setEditing(false);
-  }
-
-  function restore() {
-    clearNote(item.id);
-    setEditing(false);
-  }
-
-  if (editing) {
-    return (
-      <div className="inline-note-edit">
-        <textarea
-          autoFocus
-          className="inline-note-textarea"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={3}
-          placeholder="Write a note…"
-          maxLength={600}
-        />
-        <div className="inline-note-actions">
-          {current && (
-            <button type="button" className="inline-note-btn inline-note-btn--danger" onClick={del}>
-              Delete
-            </button>
-          )}
-          {hasOverride && (
-            <button type="button" className="inline-note-btn" onClick={restore}>
-              Restore original
-            </button>
-          )}
-          <button type="button" className="inline-note-btn" onClick={() => setEditing(false)}>
-            Cancel
-          </button>
-          <button type="button" className="inline-note-btn inline-note-btn--save" onClick={save}>
-            Save
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="inline-note-display">
-      {current && <p className="photo-note-text">{current}</p>}
-      <button type="button" className="inline-note-add" onClick={startEdit}>
-        {current ? "Edit note" : "+ Add note"}
-        {hasOverride && <span className="inline-edited-dot" aria-label="edited" />}
-      </button>
-    </div>
-  );
-}
-
-function GroupedPhoto({ item, dateInHeader, onOpen, onSave, onRemove, savedCount, noteOverrides, setNote, clearNote }) {
-  const onAny = !!savedCount;
-  const hasNoteEditing = !!noteOverrides;
-  return (
-    <figure className="photo">
-      <div className="photo-frame">
-        <button
-          type="button"
-          className="photo-button"
-          onClick={() => onOpen(item)}
-          aria-label={`Open photo from ${formatDateLong(item)}`}
-        >
-          <img src={item.src} alt="" loading="lazy" />
-        </button>
-        <button
-          type="button"
-          className={`photo-bookmark ${onAny ? "is-on" : ""}`}
-          onClick={(e) => { e.stopPropagation(); onSave(item); }}
-          aria-label="Manage albums"
-        >
-          <BookmarkIcon filled={onAny} />
-        </button>
-        {onRemove && (
-          <button
-            type="button"
-            className="photo-remove"
-            onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-            aria-label="Remove from album"
-            title="Remove from album"
-          >
-            ×
-          </button>
-        )}
-      </div>
-      <figcaption className="photo-note">
-        {!dateInHeader && <span className="photo-date">{formatDateLong(item)}</span>}
-        {hasNoteEditing ? (
-          <InlineNoteEditor
-            item={item}
-            noteOverrides={noteOverrides}
-            setNote={setNote}
-            clearNote={clearNote}
-          />
-        ) : (
-          item.note && <span className="photo-note-text">{item.note}</span>
-        )}
-      </figcaption>
-    </figure>
-  );
-}
-
-function AlbumDetail({ album, byId, query, savedCounts, newestFirst, noteOverrides, setNote, clearNote, onBack, onOpenPhoto, onSave, onUpdate, onDelete }) {
-  const [editing, setEditing] = useState(false);
+function AlbumDetail({ album, byId, query, newestFirst, editing, setEditing, onBack, onOpenPhoto, onUpdate, onDelete }) {
   const [name, setName] = useState(album.name);
-  const [albumNote, setAlbumNote] = useState(album.note);
+  const [albumNote, setAlbumNote] = useState(album.note ?? "");
+  const [seenEditing, setSeenEditing] = useState(editing);
+
+  if (seenEditing !== editing) {
+    setSeenEditing(editing);
+    if (editing) {
+      setName(album.name);
+      setAlbumNote(album.note ?? "");
+    }
+  }
 
   const items = useMemo(() => {
     const list = album.imageIds.map((id) => byId.get(id)).filter(Boolean);
@@ -190,12 +57,7 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, noteOverrid
     return filterItems(list, query);
   }, [album, byId, query, newestFirst]);
 
-  const groups = useMemo(() => groupByDate(items), [items]);
-
-  const isCollection = album.source === "collection";
-
-  function commit(e) {
-    e.preventDefault();
+  function save() {
     onUpdate(album.id, { name, note: albumNote });
     setEditing(false);
   }
@@ -207,98 +69,69 @@ function AlbumDetail({ album, byId, query, savedCounts, newestFirst, noteOverrid
     }
   }
 
+  function handleOpen(item) { onOpenPhoto(item, items); }
+
   return (
     <div className="album-detail">
-      <div className="album-bar">
-        <button type="button" className="link-button" onClick={onBack}>
-          ‹ All albums
-        </button>
-        <div className="album-bar-actions">
-          <button type="button" className="link-button" onClick={() => setEditing((v) => !v)}>
-            {editing ? "Cancel" : "Edit"}
-          </button>
-          {!isCollection && (
-            <button type="button" className="link-button link-danger" onClick={handleDelete}>
-              Delete
-            </button>
-          )}
-        </div>
-      </div>
-
-      {editing ? (
-        <form className="album-edit" onSubmit={commit}>
-          {!isCollection && (
-            <label className="sheet-field">
-              <span>Name</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
-            </label>
-          )}
-          <label className="sheet-field">
-            <span>Note</span>
-            <textarea value={albumNote} onChange={(e) => setAlbumNote(e.target.value)} rows={3} maxLength={400} />
-          </label>
-          <div className="sheet-form-actions">
-            <button type="submit" className="btn-solid">Save</button>
-          </div>
-        </form>
-      ) : (
-        <header className="album-head">
-          <h2 className="album-title">{album.name}</h2>
-          <span className="album-meta">
-            {album.imageIds.length} {album.imageIds.length === 1 ? "photo" : "photos"}
-            {isCollection && album.monthLabel ? ` · ${album.monthLabel}` : ""}
-          </span>
-          {album.note && <p className="album-note">{album.note}</p>}
-        </header>
-      )}
-
-      {items.length === 0 ? (
-        <div className="empty-state">
-          {album.imageIds.length === 0
-            ? "No photos yet. Tap the bookmark on any photo to add it here."
-            : "No photos match this search."}
-        </div>
-      ) : (
-        <div className="album-grid">
-          {groups.map((g) =>
-            g.items.length > 1 && g.day != null ? (
-              <div key={g.key} className="date-group">
-                <div className="date-group-head">
-                  <span className="date-group-label">{formatGroupLong(g)}</span>
-                  <span className="date-group-count">
-                    · {g.items.length} photos
-                  </span>
-                </div>
-                {g.items.map((it) => (
-                  <GroupedPhoto
-                    key={it.id}
-                    item={it}
-                    dateInHeader
-                    onOpen={() => onOpenPhoto(it, items)}
-                    onSave={onSave}
-                    savedCount={savedCounts.get(it.id) || 0}
-                    noteOverrides={noteOverrides}
-                    setNote={setNote}
-                    clearNote={clearNote}
-                  />
-                ))}
-              </div>
-            ) : (
-              <GroupedPhoto
-                key={g.items[0].id}
-                item={g.items[0]}
-                dateInHeader={false}
-                onOpen={() => onOpenPhoto(g.items[0], items)}
-                onSave={onSave}
-                savedCount={savedCounts.get(g.items[0].id) || 0}
-                noteOverrides={noteOverrides}
-                setNote={setNote}
-                clearNote={clearNote}
+      <section className="collection">
+        <header className="collection-head">
+          {editing ? (
+            <div className="note-edit">
+              <input
+                autoFocus
+                className="album-edit-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={80}
+                placeholder="Album name"
               />
-            )
+              <textarea
+                className="note-textarea"
+                value={albumNote}
+                onChange={(e) => setAlbumNote(e.target.value)}
+                rows={3}
+                maxLength={400}
+                placeholder="Add a description…"
+              />
+              <div className="note-edit-actions">
+                <button type="button" className="note-btn note-btn--danger" onClick={handleDelete}>
+                  Delete
+                </button>
+                <button type="button" className="note-btn" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="note-btn note-btn--save" onClick={save}>
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 className="collection-title">{album.name}</h2>
+              {album.note && <p className="collection-note">{album.note}</p>}
+              <span className="collection-meta">
+                {album.imageIds.length} {album.imageIds.length === 1 ? "photo" : "photos"}
+                {album.monthLabel ? ` · ${album.monthLabel}` : ""}
+              </span>
+            </>
           )}
-        </div>
-      )}
+        </header>
+        {items.length === 0 ? (
+          <p className="collection-empty">
+            {album.imageIds.length === 0
+              ? "No photos yet. Tap the bookmark icon on any photo to add it here."
+              : "No photos match this search."}
+          </p>
+        ) : (
+          <div className="collection-day">
+            <div className="collection-grid">
+              {items.map((item) => (
+                <Photo key={item.id} item={item} onOpen={handleOpen} compact />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -327,16 +160,7 @@ function AlbumsIndex({ albums, byId, query, onOpen, onCreate }) {
 
   return (
     <div className="albums-index">
-      <div className="albums-bar">
-        <h2 className="albums-bar-title">Albums</h2>
-        {!creating && (
-          <button type="button" className="btn-solid" onClick={() => setCreating(true)}>
-            + New
-          </button>
-        )}
-      </div>
-
-      {creating && (
+      {creating ? (
         <form className="album-create" onSubmit={submit}>
           <label className="sheet-field">
             <span>Album name</span>
@@ -367,6 +191,10 @@ function AlbumsIndex({ albums, byId, query, onOpen, onCreate }) {
             </button>
           </div>
         </form>
+      ) : (
+        <button type="button" className="album-new-btn" onClick={() => setCreating(true)}>
+          + New album
+        </button>
       )}
 
       {visible.length === 0 ? (
@@ -387,18 +215,15 @@ export default function Albums({
   byId,
   query,
   openAlbumId,
-  savedCounts,
   newestFirst,
-  noteOverrides,
-  setNote,
-  clearNote,
+  albumEditing,
+  setAlbumEditing,
   onOpenAlbum,
   onCloseAlbum,
   onCreate,
   onUpdate,
   onDelete,
   onOpenPhoto,
-  onSave,
 }) {
   const open = openAlbumId ? albums.find((a) => a.id === openAlbumId) : null;
 
@@ -408,14 +233,11 @@ export default function Albums({
         album={open}
         byId={byId}
         query={query}
-        savedCounts={savedCounts}
         newestFirst={newestFirst}
-        noteOverrides={noteOverrides}
-        setNote={setNote}
-        clearNote={clearNote}
+        editing={albumEditing}
+        setEditing={setAlbumEditing}
         onBack={onCloseAlbum}
         onOpenPhoto={onOpenPhoto}
-        onSave={onSave}
         onUpdate={onUpdate}
         onDelete={onDelete}
       />
@@ -433,4 +255,3 @@ export default function Albums({
   );
 }
 
-export { BookmarkIcon };

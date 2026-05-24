@@ -1,4 +1,3 @@
-import { BookmarkIcon } from "./Albums.jsx";
 import {
   formatDateLong,
   formatGroupShort,
@@ -20,16 +19,6 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
         >
           <img src={item.src} alt="" loading="lazy" />
         </button>
-
-        <button
-          type="button"
-          className={`photo-bookmark ${savedCount > 0 ? "is-on" : ""}`}
-          onClick={(e) => { e.stopPropagation(); onSave(item); }}
-          aria-label={savedCount > 0 ? "In album — tap to manage" : "Save to album"}
-          title={savedCount > 0 ? "In album" : "Save to album"}
-        >
-          <BookmarkIcon filled={savedCount > 0} />
-        </button>
       </div>
 
       {showCaption && (
@@ -46,22 +35,23 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
 
 function DayHeader({ group, compact }) {
   return (
-    <div className={`date-group-head ${compact ? "is-compact" : ""}`}>
-      <span className="date-group-label">{formatGroupShort(group)}</span>
-      <span className="date-group-count">
-        · {group.items.length} {group.items.length === 1 ? "photo" : "photos"}
-      </span>
+    <div>
+     
     </div>
   );
 }
 
-function Collection({ collection, monthLabel, onOpen, onSave, savedCounts }) {
+function Collection({ collection, monthLabel, onOpen, onSave, savedCounts, onOpenAlbum }) {
   const hasItems = collection.items.length > 0;
   const groups = groupByDate(collection.items);
+  const albumId = `col::${collection.key}`;
 
   return (
     <section className="collection" aria-label={collection.name}>
-      <header className="collection-head">
+      <header
+        className={`collection-head${onOpenAlbum ? " collection-head--link" : ""}`}
+        onClick={onOpenAlbum ? () => onOpenAlbum(albumId) : undefined}
+      >
         <h3 className="collection-title">{collection.name}</h3>
         <span className="collection-meta">
           {hasItems
@@ -128,7 +118,7 @@ function LooseGroup({ group, onOpen, onSave, savedCounts }) {
   );
 }
 
-export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst }) {  if (!months.length) {
+export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst, onOpenAlbum }) {  if (!months.length) {
     return (
       <div className="empty-state">
         <p>Nothing here for that filter.</p>
@@ -156,8 +146,8 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
                     monthLabel={m.label}
                     onOpen={onOpen}
                     onSave={onSave}
-                    
                     savedCounts={savedCounts}
+                    onOpenAlbum={onOpenAlbum}
                   />
                 ) : (
                   <LooseGroup
