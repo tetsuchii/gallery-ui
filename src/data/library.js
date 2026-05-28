@@ -1,17 +1,21 @@
 import { rtfToText } from "./rtf.js";
 
+// Eager: these are just URL strings and small text blobs — negligible bundle
+// cost (~30 KB URLs + ~28 KB notes gzipped). Loading them lazily would mean
+// 800+ separate HTTP round-trips on the Pi, which is far worse.
+
 const imageModules = import.meta.glob(
   "../assets/images/**/*.{jpg,jpeg,png,webp,gif,JPG,JPEG,PNG,WEBP,GIF}",
   { eager: true, query: "?url", import: "default" }
 );
 
-const rtfModules = import.meta.glob(
-  "../assets/images/**/*.rtf",
+const txtModules = import.meta.glob(
+  "../assets/images/**/*.txt",
   { eager: true, query: "?raw", import: "default" }
 );
 
-const txtModules = import.meta.glob(
-  "../assets/images/**/*.txt",
+const rtfModules = import.meta.glob(
+  "../assets/images/**/*.rtf",
   { eager: true, query: "?raw", import: "default" }
 );
 
@@ -50,13 +54,11 @@ function parseFolderDate(folder) {
 
 function dayFromFilename(name, monthNum) {
   const stem = name.replace(/\.[^.]+$/, "");
-  // Primary: trailing _NN at the end of the stem (filenames end with _<day>)
   const trail = stem.match(/_(\d{1,2})$/);
   if (trail) {
     const d = parseInt(trail[1], 10);
     if (d >= 1 && d <= 31) return d;
   }
-  // Fallback: <month>_<day> anywhere (e.g. "..._dec_19_extra")
   const candidates = [MONTH_SHORT[monthNum], MONTH_LONG[monthNum]]
     .filter(Boolean)
     .map((s) => s.toLowerCase());
@@ -76,12 +78,8 @@ function parentDir(p) {
 
 export function buildLibrary() {
   const noteByPath = {};
-  for (const [p, raw] of Object.entries(rtfModules)) {
-    noteByPath[p] = rtfToText(raw);
-  }
-  for (const [p, raw] of Object.entries(txtModules)) {
-    noteByPath[p] = raw?.trim() || null;
-  }
+  for (const [p, raw] of Object.entries(rtfModules)) noteByPath[p] = rtfToText(raw);
+  for (const [p, raw] of Object.entries(txtModules)) noteByPath[p] = raw?.trim() || null;
 
   const monthMap = new Map();
 
@@ -157,10 +155,7 @@ export function buildLibrary() {
     }
   }
 
-  // Pass 2: collection notes — any note file inside a collection folder:
-  // "note*.rtf/txt" (old style), "<mon>_<day>_note.rtf/txt" (new style),
-  // plus the .rtfd/TXT.rtf|txt variant. After setting c.note, the note text
-  // is also copied to each item so the lightbox can display it.
+  // Pass 2: collection notes
   for (const path of Object.keys(noteByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
@@ -168,10 +163,8 @@ export function buildLibrary() {
 
     const filename = parts[parts.length - 1];
     let isCollectionNote = false;
-    // depth 3: name starts with "note" OR ends with "_note", any supported ext
     if (parts.length === 3 && /(?:^note|_note)\.(?:rtf|txt)$/i.test(filename)) {
       isCollectionNote = true;
-    // depth 4: <anything>.rtfd/TXT.rtf|txt
     } else if (
       parts.length === 4 &&
       /\.rtfd$/i.test(parts[2]) &&
@@ -186,15 +179,11 @@ export function buildLibrary() {
     const c = getCollection(monthEntry, parts[1]);
     if (!c.note) {
       c.note = noteByPath[path];
-      // propagate to all items already in this collection
       for (const it of c.items) it.collectionNote = c.note;
     }
   }
 
-  // Pass 3: month-day notes attach to every loose image in that month taken
-  // on that day. Handles:
-  //   <mon>_<day>_note.rtf|txt          depth 2: "2019-feb/feb_13_note.txt"
-  //   <mon>_<day>_note.rtfd/TXT.rtf|txt depth 3: "2019-aug/aug_24_note.rtfd/TXT.txt"
+  // Pass 3: month-day notes
   for (const [path, text] of Object.entries(noteByPath)) {
     const rel = relPath(path);
     const parts = rel.split("/");
@@ -226,7 +215,6 @@ export function buildLibrary() {
     }
   }
 
-  // Sort
   const months = [...monthMap.values()].sort(
     (a, b) => a.year - b.year || a.month - b.month
   );

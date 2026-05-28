@@ -1,11 +1,15 @@
+import { useEffect, useRef, useState } from "react";
 import {
   formatDateLong,
-  formatGroupShort,
   chronologicalBlocks,
   groupByDate,
 } from "../data/dates.js";
 
-function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
+// ── Photo ─────────────────────────────────────────────────────────────────────
+// Native loading="lazy" lets the browser defer JPEG downloads without any JS.
+// decoding="async" keeps image decoding off the main thread.
+
+function Photo({ item, onOpen, compact, dateInHeader }) {
   const showCaption = !compact && (!dateInHeader || item.note);
 
   return (
@@ -17,7 +21,7 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
           onClick={() => onOpen(item)}
           aria-label={`Open photo from ${formatDateLong(item)}`}
         >
-          <img src={item.src} alt="" loading="lazy" />
+          <img src={item.src} alt="" loading="lazy" decoding="async" />
         </button>
       </div>
 
@@ -33,15 +37,13 @@ function Photo({ item, onOpen, onSave, savedCount, compact, dateInHeader }) {
   );
 }
 
-function DayHeader({ group, compact }) {
-  return (
-    <div>
-     
-    </div>
-  );
+function DayHeader() {
+  return <div />;
 }
 
-function Collection({ collection, monthLabel, onOpen, onSave, savedCounts, onOpenAlbum }) {
+// ── Collection ────────────────────────────────────────────────────────────────
+
+function Collection({ collection, monthLabel, onOpen, savedCounts, onOpenAlbum }) {
   const hasItems = collection.items.length > 0;
   const groups = groupByDate(collection.items);
   const albumId = `col::${collection.key}`;
@@ -74,7 +76,6 @@ function Collection({ collection, monthLabel, onOpen, onSave, savedCounts, onOpe
                   key={item.id}
                   item={item}
                   onOpen={onOpen}
-                  onSave={onSave}
                   savedCount={savedCounts.get(item.id) || 0}
                   compact
                   dateInHeader={groupHeaderShown}
@@ -88,7 +89,7 @@ function Collection({ collection, monthLabel, onOpen, onSave, savedCounts, onOpe
   );
 }
 
-function LooseGroup({ group, onOpen, onSave, savedCounts }) {
+function LooseGroup({ group, onOpen, savedCounts }) {
   const groupHeaderShown = group.items.length > 1 && group.day != null;
   if (!groupHeaderShown) {
     const item = group.items[0];
@@ -96,7 +97,6 @@ function LooseGroup({ group, onOpen, onSave, savedCounts }) {
       <Photo
         item={item}
         onOpen={onOpen}
-        onSave={onSave}
         savedCount={savedCounts.get(item.id) || 0}
       />
     );
@@ -109,7 +109,6 @@ function LooseGroup({ group, onOpen, onSave, savedCounts }) {
           key={item.id}
           item={item}
           onOpen={onOpen}
-          onSave={onSave}
           savedCount={savedCounts.get(item.id) || 0}
           dateInHeader
         />
@@ -118,7 +117,43 @@ function LooseGroup({ group, onOpen, onSave, savedCounts }) {
   );
 }
 
-export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst, onOpenAlbum }) {  if (!months.length) {
+// ── Timeline ──────────────────────────────────────────────────────────────────
+// Renders months progressively: starts with INITIAL_MONTHS visible and appends
+// CHUNK_SIZE more each time the sentinel scrolls into view. This keeps the
+// initial DOM small regardless of archive size.
+
+const INITIAL_MONTHS = 4;
+const CHUNK_SIZE = 3;
+
+export default function Timeline({ months, onOpen, onSave, savedCounts, newestFirst, onOpenAlbum }) {
+  const [visibleCount, setVisibleCount] = useState(INITIAL_MONTHS);
+  const [seenLength, setSeenLength] = useState(months.length);
+  const sentinelRef = useRef(null);
+
+  // Reset when the month list changes (filter/search applied)
+  if (seenLength !== months.length) {
+    setSeenLength(months.length);
+    setVisibleCount(INITIAL_MONTHS);
+  }
+
+  // Sentinel observer — load next chunk when bottom approaches viewport
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel || visibleCount >= months.length) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((n) => Math.min(n + CHUNK_SIZE, months.length));
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, months.length]);
+
+  if (!months.length) {
     return (
       <div className="empty-state">
         <p>Nothing here for that filter.</p>
@@ -126,9 +161,11 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
     );
   }
 
+  const visible = months.slice(0, visibleCount);
+
   return (
     <div className="timeline">
-      {months.map((m) => {
+      {visible.map((m) => {
         const blocks = chronologicalBlocks(m, { newestFirst });
         return (
           <section key={m.key} className="month" id={`month-${m.key}`}>
@@ -155,7 +192,6 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
                     group={b.group}
                     onOpen={onOpen}
                     onSave={onSave}
-                    
                     savedCounts={savedCounts}
                   />
                 )
@@ -164,6 +200,11 @@ export default function Timeline({ months, onOpen, onSave, savedCounts, newestFi
           </section>
         );
       })}
+
+      {/* Sentinel: triggers loading the next chunk of months */}
+      {visibleCount < months.length && (
+        <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
+      )}
     </div>
   );
 }

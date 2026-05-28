@@ -34,7 +34,8 @@ function AlbumsIcon() {
 }
 
 export default function App() {
-  const staticMonths = useMemo(() => buildLibrary(), []);
+  const libraryMonths = useMemo(() => buildLibrary(), []);
+
   const [uploadedImages, setUploadedImages] = useState([]);
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function App() {
   }
 
   const months = useMemo(() => {
-    if (!uploadedImages.length) return staticMonths;
+    if (!uploadedImages.length) return libraryMonths;
 
     const now = new Date();
 
@@ -103,8 +104,8 @@ export default function App() {
       loose: uploadedImages,
     };
 
-    return [...staticMonths, uploadMonth];
-  }, [staticMonths, uploadedImages]);
+    return [...libraryMonths, uploadMonth];
+  }, [libraryMonths, uploadedImages]);
 
   const monthsWithoutDeleted = useMemo(() => {
     if (!deletedImagesApi.deletedIds.size) return months;

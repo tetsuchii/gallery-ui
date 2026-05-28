@@ -289,7 +289,7 @@ export default function Lightbox({
         </button>
 
         <div className="lightbox-img-wrap" ref={wrapRef}>
-          <img className="lightbox-img" src={item.src} alt="" />
+          <img className="lightbox-img" src={item.src} alt="" decoding="async" />
         </div>
 
         <button

@@ -2,15 +2,14 @@ import { useMemo, useState } from "react";
 import { filterItems } from "../data/search.js";
 import { Photo } from "./Timeline.jsx";
 
-
-
 function AlbumCard({ album, byId, onOpen }) {
   const cover = album.imageIds.map((id) => byId.get(id)).find(Boolean);
+
   return (
     <button type="button" className="album-card" onClick={() => onOpen(album.id)}>
       <span className="album-cover">
         {cover ? (
-          <img src={cover.src} alt="" loading="lazy" />
+          <img src={cover.src} alt="" loading="lazy" decoding="async" />
         ) : (
           <span className="album-cover-empty">Empty</span>
         )}
